@@ -10,519 +10,519 @@ local Items = require('Module:Items')
 local weaponTypes = {'Magic Staff', 'Magic Wand', 'Ranged Weapon', 'Weapon'}
 
 local styleOverrides = {
-  Melee = {'Slayer Helmet (Basic)', 'Slayer Platebody (Basic)', 'Paladin Gloves', 'Desert Wrappings', 'Almighty Lute', 'Candy Cane', 'Bob&apos;s Rake'},
-  Ranged = {'Slayer Cowl (Basic)', 'Slayer Leather Body (Basic)', 'Ice Arrows'},
-  Magic = {'Slayer Wizard Hat (Basic)', 'Slayer Wizard Robes (Basic)', 'Enchanted Shield', 'Elementalist Gloves'},
-  None = {},
+	Melee = {'Slayer Helmet (Basic)', 'Slayer Platebody (Basic)', 'Paladin Gloves', 'Desert Wrappings', 'Almighty Lute', 'Candy Cane', 'Bob&apos;s Rake'},
+	Ranged = {'Slayer Cowl (Basic)', 'Slayer Leather Body (Basic)', 'Ice Arrows'},
+	Magic = {'Slayer Wizard Hat (Basic)', 'Slayer Wizard Robes (Basic)', 'Enchanted Shield', 'Elementalist Gloves'},
+	None = {},
 }
 
 function p._getEquipmentTable(itemList, includeModifiers, includeDescription)
-  if includeModifiers == nil then includeModifiers = false end
+	if includeModifiers == nil then includeModifiers = false end
 
-  --Getting some lists set up here that will be used later
-  --First, the list of columns used by both weapons & armour
-  local statColumns = {'stabAttackBonus', 'slashAttackBonus','blockAttackBonus','rangedAttackBonus', 'magicAttackBonus', 'meleeStrengthBonus', 'rangedStrengthBonus', 'magicDamageBonus', 'meleeDefenceBonus', 'rangedDefenceBonus', 'magicDefenceBonus', 'damageReduction', 'attackLevelRequired', 'defenceLevelRequired', 'rangedLevelRequired', 'magicLevelRequired'}
+	--Getting some lists set up here that will be used later
+	--First, the list of columns used by both weapons & armour
+	local statColumns = {'stabAttackBonus', 'slashAttackBonus', 'blockAttackBonus', 'rangedAttackBonus', 'magicAttackBonus', 'meleeStrengthBonus', 'rangedStrengthBonus', 'magicDamageBonus', 'meleeDefenceBonus', 'rangedDefenceBonus', 'magicDefenceBonus', 'damageReduction', 'attackLevelRequired', 'defenceLevelRequired', 'rangedLevelRequired', 'magicLevelRequired'}
 
-  if(Shared.tableCount(itemList) == 0) then
-    return 'ERROR: you must select at least one item to get stats for[[Category:Pages with script errors]]'
-  end
+	if(Shared.tableCount(itemList) == 0) then
+		return 'ERROR: you must select at least one item to get stats for[[Category:Pages with script errors]]'
+	end
 
-  local isWeaponType = itemList[1].validSlots ~= nil and Shared.contains(itemList[1].validSlots, 'Weapon') and Shared.contains(weaponTypes, itemList[1].type)
+	local isWeaponType = itemList[1].validSlots ~= nil and Shared.contains(itemList[1].validSlots, 'Weapon') and Shared.contains(weaponTypes, itemList[1].type)
 
-  --Now that we have a preliminary list, let's figure out which columns are irrelevant (IE are zero for all items in the selection)
-  local ignoreColumns = Shared.clone(statColumns)
-  for i, item in pairs(itemList) do
-    local ndx = 1
-    while Shared.tableCount(ignoreColumns) >= ndx do
-      if Items._getItemStat(item, ignoreColumns[ndx], true) ~= 0 then
-        table.remove(ignoreColumns, ndx)
-      else
-        ndx = ndx + 1
-      end
-    end
-  end
+	--Now that we have a preliminary list, let's figure out which columns are irrelevant (IE are zero for all items in the selection)
+	local ignoreColumns = Shared.clone(statColumns)
+	for i, item in pairs(itemList) do
+		local ndx = 1
+		while Shared.tableCount(ignoreColumns) >= ndx do
+			if Items._getItemStat(item, ignoreColumns[ndx], true) ~= 0 then
+				table.remove(ignoreColumns, ndx)
+			else
+				ndx = ndx + 1
+			end
+		end
+	end
 
-  --Now to remove the ignored columns (and also we need to track groups like defence bonuses to see how many remain)
-  local attBonusCols = 5
-  local strBonusCols = 2
-  local defBonusCols = 3
-  local lvlReqCols = 4
-  local ndx = 1
-  while Shared.tableCount(statColumns) >= ndx do
-    local colName = statColumns[ndx]
-    if Shared.contains(ignoreColumns, colName) then
-      if Shared.contains(colName, 'AttackBonus') then attBonusCols = attBonusCols - 1 end
-      if Shared.contains(colName, 'trengthBonus') then strBonusCols = strBonusCols - 1 end
-      if Shared.contains(colName, 'efenceBonus') then defBonusCols = defBonusCols - 1 end
-      if Shared.contains(colName, 'LevelRequired') then lvlReqCols = lvlReqCols - 1 end
-      table.remove(statColumns, ndx)
-    else
-      ndx = ndx + 1
-    end
-  end
+	--Now to remove the ignored columns (and also we need to track groups like defence bonuses to see how many remain)
+	local attBonusCols = 5
+	local strBonusCols = 2
+	local defBonusCols = 3
+	local lvlReqCols = 4
+	local ndx = 1
+	while Shared.tableCount(statColumns) >= ndx do
+		local colName = statColumns[ndx]
+		if Shared.contains(ignoreColumns, colName) then
+			if Shared.contains(colName, 'AttackBonus') then attBonusCols = attBonusCols - 1 end
+			if Shared.contains(colName, 'trengthBonus') then strBonusCols = strBonusCols - 1 end
+			if Shared.contains(colName, 'efenceBonus') then defBonusCols = defBonusCols - 1 end
+			if Shared.contains(colName, 'LevelRequired') then lvlReqCols = lvlReqCols - 1 end
+			table.remove(statColumns, ndx)
+		else
+			ndx = ndx + 1
+		end
+	end
 
-  --Alright, let's start the table by building the shared header
-  local resultPart = {}
-  table.insert(resultPart, '{| class="wikitable sortable stickyHeader"\r\n|-class="headerRow-0"')
-  if isWeaponType then
-    --Weapons have extra columns here for Attack Speed and "Two Handed?"
-    table.insert(resultPart, '\r\n!colspan="4"|')
-  else
-    table.insert(resultPart, '\r\n!colspan="2"|')
-  end
-  if attBonusCols > 0 then
-    table.insert(resultPart, '\r\n!colspan="'..attBonusCols..'"style="padding:0 0.5em 0 0.5em;"|Attack Bonus')
-  end
-  if strBonusCols > 0 then
-    table.insert(resultPart, '\r\n!colspan="'..strBonusCols..'"style="padding:0 0.5em 0 0.5em;"|Str. Bonus')
-  end
-  if Shared.contains(statColumns, 'magicDamageBonus') then
-    table.insert(resultPart, '\r\n!colspan="1"style="padding:0 0.5em 0 0.5em;"|% Dmg Bonus')
-  end
-  if defBonusCols > 0 then
-    table.insert(resultPart, '\r\n!colspan="'..defBonusCols..'"style="padding:0 0.5em 0 0.5em;"|Defence Bonus')
-  end
-  if Shared.contains(statColumns, 'damageReduction') then
-    table.insert(resultPart, '\r\n!colspan="1"style="padding:0 0.5em 0 0.5em;"|DR')
-  end
-  if lvlReqCols > 0 then
-    table.insert(resultPart, '\r\n!colspan="'..lvlReqCols..'"style="padding:0 0.5em 0 0.5em;"|Lvl Req')
-  end
-  if includeModifiers and includeDescription then
-    table.insert(resultPart, '\r\n!colspan="2"|')
-  elseif includeModifiers or includeDescription then
-    table.insert(resultPart, '\r\n!colspan="1"|')
-  end
-  --One header row down, one to go
-  table.insert(resultPart, '\r\n|-class="headerRow-1"')
-  table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Item')
-  table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Name')
-  --Weapons have Attack Speed here
-  if isWeaponType then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Attack Speed')
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Two Handed?')
-  end
-  --Attack bonuses
-  if Shared.contains(statColumns, 'slashAttackBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Attack', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'stabAttackBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Strength', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'blockAttackBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'rangedAttackBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'magicAttackBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type='skill', notext='true'}))
-  end
-  --Strength bonuses
-  if Shared.contains(statColumns, 'meleeStrengthBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Strength', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'rangedStrengthBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'magicDamageBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type='skill', notext='true'}))
-  end
-  --Defence bonuses
-  if Shared.contains(statColumns, 'meleeDefenceBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'rangedDefenceBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'magicDefenceBonus') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'damageReduction') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type='skill', notext='true'}))
-  end
-  --Level requirements
-  if Shared.contains(statColumns, 'attackLevelRequired') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Attack', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'defenceLevelRequired') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'rangedLevelRequired') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type='skill', notext='true'}))
-  end
-  if Shared.contains(statColumns, 'magicLevelRequired') then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type='skill', notext='true'}))
-  end
-  --If includeModifiers is set to 'true', add the Modifiers column
-  if includeModifiers then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Modifiers')
-  end
-  --If includeDescription is set to 'true', add the Description column
-  if includeDescription then
-    table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Description')
-  end
+	--Alright, let's start the table by building the shared header
+	local resultPart = {}
+	table.insert(resultPart, '{| class="wikitable sortable stickyHeader"\r\n|-class="headerRow-0"')
+	if isWeaponType then
+		--Weapons have extra columns here for Attack Speed and "Two Handed?"
+		table.insert(resultPart, '\r\n!colspan="4"|')
+	else
+		table.insert(resultPart, '\r\n!colspan="2"|')
+	end
+	if attBonusCols > 0 then
+		table.insert(resultPart, '\r\n!colspan="'..attBonusCols..'"style="padding:0 0.5em 0 0.5em;"|Attack Bonus')
+	end
+	if strBonusCols > 0 then
+		table.insert(resultPart, '\r\n!colspan="'..strBonusCols..'"style="padding:0 0.5em 0 0.5em;"|Str. Bonus')
+	end
+	if Shared.contains(statColumns, 'magicDamageBonus') then
+		table.insert(resultPart, '\r\n!colspan="1"style="padding:0 0.5em 0 0.5em;"|% Dmg Bonus')
+	end
+	if defBonusCols > 0 then
+		table.insert(resultPart, '\r\n!colspan="'..defBonusCols..'"style="padding:0 0.5em 0 0.5em;"|Defence Bonus')
+	end
+	if Shared.contains(statColumns, 'damageReduction') then
+		table.insert(resultPart, '\r\n!colspan="1"style="padding:0 0.5em 0 0.5em;"|DR')
+	end
+	if lvlReqCols > 0 then
+		table.insert(resultPart, '\r\n!colspan="'..lvlReqCols..'"style="padding:0 0.5em 0 0.5em;"|Lvl Req')
+	end
+	if includeModifiers and includeDescription then
+		table.insert(resultPart, '\r\n!colspan="2"|')
+	elseif includeModifiers or includeDescription then
+		table.insert(resultPart, '\r\n!colspan="1"|')
+	end
+	--One header row down, one to go
+	table.insert(resultPart, '\r\n|-class="headerRow-1"')
+	table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Item')
+	table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Name')
+	--Weapons have Attack Speed here
+	if isWeaponType then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Attack Speed')
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Two Handed?')
+	end
+	--Attack bonuses
+	if Shared.contains(statColumns, 'slashAttackBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Attack', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'stabAttackBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Strength', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'blockAttackBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'rangedAttackBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'magicAttackBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type = 'skill', notext = 'true'}))
+	end
+	--Strength bonuses
+	if Shared.contains(statColumns, 'meleeStrengthBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Strength', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'rangedStrengthBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'magicDamageBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type = 'skill', notext = 'true'}))
+	end
+	--Defence bonuses
+	if Shared.contains(statColumns, 'meleeDefenceBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'rangedDefenceBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'magicDefenceBonus') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'damageReduction') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type = 'skill', notext = 'true'}))
+	end
+	--Level requirements
+	if Shared.contains(statColumns, 'attackLevelRequired') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Attack', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'defenceLevelRequired') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Defence', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'rangedLevelRequired') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Ranged', type = 'skill', notext = 'true'}))
+	end
+	if Shared.contains(statColumns, 'magicLevelRequired') then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|'..Icons.Icon({'Magic', type = 'skill', notext = 'true'}))
+	end
+	--If includeModifiers is set to 'true', add the Modifiers column
+	if includeModifiers then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Modifiers')
+	end
+	--If includeDescription is set to 'true', add the Description column
+	if includeDescription then
+		table.insert(resultPart, '\r\n!style="padding:0 1em 0 0.5em;"|Description')
+	end
 
-  table.sort(itemList, function(a, b) return a.id < b.id end)
-  for i, item in pairs(itemList) do
-    if isWeaponType then
-      --Building rows for weapons
-      table.insert(resultPart, '\r\n|-')
-      table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0 0 0;"|'..Icons.Icon({item.name, type='item', size=50, notext=true}))
-      table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0.5em 0 0.5em;"|'..Icons.Icon({item.name, type='item', noicon=true}))
-      table.insert(resultPart, '\r\n| style ="text-align: right;padding: 0 0.5em 0 0;" |'..Shared.round(Items._getItemStat(item, 'attackSpeed', true) / 1000, 3, 1) .. 's')
-      --That's the first list out of the way, now for 2-Handed
-      table.insert(resultPart, '\r\n| style ="text-align: right;"|')
-      table.insert(resultPart, Items._getItemStat(item, 'isTwoHanded') and 'Yes' or 'No')
-      for j, statName in pairs(statColumns) do
-        local statValue = Items._getItemStat(item, statName, true)
-        table.insert(resultPart, '\r\n| style ="text-align: right;padding: 0 0.5em 0 0;')
-        if string.find(statName, '^(.+)LevelRequired$') == nil then
-          if statValue > 0 then
-            table.insert(resultPart, 'background-color:lightgreen;')
-          elseif statValue < 0 then
-            table.insert(resultPart, 'background-color:lightpink;')
-          end
-        end
-        table.insert(resultPart, '"|'..Shared.formatnum(statValue))
-        if statName == 'magicDamageBonus' or statName == 'damageReduction' then table.insert(resultPart, '%') end
-      end
-      --If requested, add the item Modifiers
-      if includeModifiers then
-        table.insert(resultPart, '\r\n|style="text-align:left;white-space:nowrap;padding:0 0.5em 0 0.5em;"|')
-        table.insert(resultPart, Constants.getModifiersText(item.modifiers, true))
-      end
-      --If requested, add description
-      if includeDescription then
-        table.insert(resultPart, '\r\n|style="text-align:left;padding:0 0.5em 0 0.5em;"|')
-        table.insert(resultPart, item.description ~= nil and item.description or '')
-      end
-    else
-      --Building rows for armour
-      table.insert(resultPart, '\r\n|-')
-      table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0 0 0;"|'..Icons.Icon({item.name, type='item', size=50, notext=true}))
-      table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0.5em 0 0.5em;"|'..Icons.Icon({item.name, type='item', noicon=true}))
-      for j, statName in pairs(statColumns) do
-        local statValue = Items._getItemStat(item, statName, true)
-        table.insert(resultPart, '\r\n| style ="text-align: right;padding: 0 0.5em 0 0;')
-        if statValue > 0 then
-          table.insert(resultPart, 'background-color:lightgreen;')
-        elseif statValue < 0 then
-          table.insert(resultPart, 'background-color:lightpink;')
-        end
-        table.insert(resultPart, '"|'..Shared.formatnum(statValue))
-        if statName == 'magicDamageBonus' or statName == 'damageReduction' then table.insert(resultPart, '%') end
-      end
-      --If requested, add the item Modifiers
-      if includeModifiers then
-        table.insert(resultPart, '\r\n|style="text-align:left;white-space:nowrap;padding:0 0.5em 0 0.5em;"|')
-        table.insert(resultPart, Constants.getModifiersText(item.modifiers, true))
-      end
-      --If requested, add description
-      if includeDescription then
-        table.insert(resultPart, '\r\n|style="text-align:left;padding:0 0.5em 0 0.5em;"|')
-        table.insert(resultPart, item.description ~= nil and item.description or '')
-      end
-    end
-  end
+	table.sort(itemList, function(a, b) return a.id < b.id end)
+	for i, item in pairs(itemList) do
+		if isWeaponType then
+			--Building rows for weapons
+			table.insert(resultPart, '\r\n|-')
+			table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0 0 0;"|'..Icons.Icon({item.name, type = 'item', size = 50, notext = true}))
+			table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0.5em 0 0.5em;"|'..Icons.Icon({item.name, type = 'item', noicon = true}))
+			table.insert(resultPart, '\r\n| style ="text-align: right;padding: 0 0.5em 0 0;" |'..Shared.round(Items._getItemStat(item, 'attackSpeed', true) / 1000, 3, 1) .. 's')
+			--That's the first list out of the way, now for 2-Handed
+			table.insert(resultPart, '\r\n| style ="text-align: right;"|')
+			table.insert(resultPart, Items._getItemStat(item, 'isTwoHanded') and 'Yes' or 'No')
+			for j, statName in pairs(statColumns) do
+				local statValue = Items._getItemStat(item, statName, true)
+				table.insert(resultPart, '\r\n| style ="text-align: right;padding: 0 0.5em 0 0;')
+				if string.find(statName, '^(.+)LevelRequired$') == nil then
+					if statValue > 0 then
+						table.insert(resultPart, 'background-color:lightgreen;')
+					elseif statValue < 0 then
+						table.insert(resultPart, 'background-color:lightpink;')
+					end
+				end
+				table.insert(resultPart, '"|'..Shared.formatnum(statValue))
+				if statName == 'magicDamageBonus' or statName == 'damageReduction' then table.insert(resultPart, '%') end
+			end
+			--If requested, add the item Modifiers
+			if includeModifiers then
+				table.insert(resultPart, '\r\n|style="text-align:left;white-space:nowrap;padding:0 0.5em 0 0.5em;"|')
+				table.insert(resultPart, Constants.getModifiersText(item.modifiers, true))
+			end
+			--If requested, add description
+			if includeDescription then
+				table.insert(resultPart, '\r\n|style="text-align:left;padding:0 0.5em 0 0.5em;"|')
+				table.insert(resultPart, item.description ~= nil and item.description or '')
+			end
+		else
+			--Building rows for armour
+			table.insert(resultPart, '\r\n|-')
+			table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0 0 0;"|'..Icons.Icon({item.name, type = 'item', size = 50, notext = true}))
+			table.insert(resultPart, '\r\n|style ="text-align: left;padding: 0 0.5em 0 0.5em;"|'..Icons.Icon({item.name, type = 'item', noicon = true}))
+			for j, statName in pairs(statColumns) do
+				local statValue = Items._getItemStat(item, statName, true)
+				table.insert(resultPart, '\r\n| style ="text-align: right;padding: 0 0.5em 0 0;')
+				if statValue > 0 then
+					table.insert(resultPart, 'background-color:lightgreen;')
+				elseif statValue < 0 then
+					table.insert(resultPart, 'background-color:lightpink;')
+				end
+				table.insert(resultPart, '"|'..Shared.formatnum(statValue))
+				if statName == 'magicDamageBonus' or statName == 'damageReduction' then table.insert(resultPart, '%') end
+			end
+			--If requested, add the item Modifiers
+			if includeModifiers then
+				table.insert(resultPart, '\r\n|style="text-align:left;white-space:nowrap;padding:0 0.5em 0 0.5em;"|')
+				table.insert(resultPart, Constants.getModifiersText(item.modifiers, true))
+			end
+			--If requested, add description
+			if includeDescription then
+				table.insert(resultPart, '\r\n|style="text-align:left;padding:0 0.5em 0 0.5em;"|')
+				table.insert(resultPart, item.description ~= nil and item.description or '')
+			end
+		end
+	end
 
-  table.insert(resultPart, '\r\n|}')
+	table.insert(resultPart, '\r\n|}')
 
-  return table.concat(resultPart)
+	return table.concat(resultPart)
 end
 
 function p.getEquipmentTable(frame)
-  local args = frame.args ~= nil and frame.args or frame
-  local type = args.type
-  local tier = args.tier
-  local slot = args.slot
-  local ammoTypeStr = args.ammoType
-  local category = args.category ~= nil and args.category or 'Combat'
+	local args = frame.args ~= nil and frame.args or frame
+	local type = args.type
+	local tier = args.tier
+	local slot = args.slot
+	local ammoTypeStr = args.ammoType
+	local category = args.category ~= nil and args.category or 'Combat'
 
-   --Find out what Ammo Type we're working with
-  local ammoType = nil
-  if ammoTypeStr ~= nil then
-    if ammoTypeStr == "Arrows" then
-      ammoType = 0
-    elseif ammoTypeStr == 'Bolts' then
-      ammoType = 1
-    elseif ammoTypeStr == 'Javelins' then
-      ammoType = 2
-    elseif ammoTypeStr == 'Throwing Knives' then
-      ammoType = 3
-    end
-  end
+	--Find out what Ammo Type we're working with
+	local ammoType = nil
+	if ammoTypeStr ~= nil then
+		if ammoTypeStr == "Arrows" then
+			ammoType = 0
+		elseif ammoTypeStr == 'Bolts' then
+			ammoType = 1
+		elseif ammoTypeStr == 'Javelins' then
+			ammoType = 2
+		elseif ammoTypeStr == 'Throwing Knives' then
+			ammoType = 3
+		end
+	end
 
-  local isWeaponType = Shared.contains(weaponTypes, type)
+	local isWeaponType = Shared.contains(weaponTypes, type)
 
-  --Now we need to figure out which items are in this list
-  local itemList = {}
-  for i, itemBase in pairs(ItemData.Items) do
-    local item = Shared.clone(itemBase)
-    item.id = i - 1
-    local listItem = false
-    if isWeaponType then
-    listItem = item.type == type and item.category == category
-      if ammoType ~= nil then listItem = listItem and item.ammoTypeRequired == ammoType end
-    else
-      --Now for handling armour
-      if type == "Armour" or type == "Melee" then
-        listItem = Items._getItemStat(item, 'defenceLevelRequired') ~= nil or (item.category == 'Combat' and item.type == 'Armour')
-      elseif type == "Ranged Armour" or type == "Ranged" then
-        listItem = Items._getItemStat(item, 'rangedLevelRequired') ~= nil or (item.category == 'Combat' and item.type == 'Ranged Armour')
-      elseif type == "Magic Armour" or type == "Magic" then
-        listItem = Items._getItemStat(item, 'magicLevelRequired') or (item.category == 'Combat' and item.type == 'Magic Armour')
-      else
-        listItem = item.type == type and item.category ~= 'Combat'
-      end
-      if ammoType ~= nil then listItem = listItem and item.ammoType == ammoType end
-      if slot ~= nil then listItem = listItem and Shared.contains(item.validSlots, slot) end
-    end
-    if listItem then
-      table.insert(itemList, item)
-    end
-  end
+	--Now we need to figure out which items are in this list
+	local itemList = {}
+	for i, itemBase in pairs(ItemData.Items) do
+		local item = Shared.clone(itemBase)
+		item.id = i - 1
+		local listItem = false
+		if isWeaponType then
+			listItem = item.type == type and item.category == category
+			if ammoType ~= nil then listItem = listItem and item.ammoTypeRequired == ammoType end
+		else
+			--Now for handling armour
+			if type == "Armour" or type == "Melee" then
+				listItem = Items._getItemStat(item, 'defenceLevelRequired') ~= nil or (item.category == 'Combat' and item.type == 'Armour')
+			elseif type == "Ranged Armour" or type == "Ranged" then
+				listItem = Items._getItemStat(item, 'rangedLevelRequired') ~= nil or (item.category == 'Combat' and item.type == 'Ranged Armour')
+			elseif type == "Magic Armour" or type == "Magic" then
+				listItem = Items._getItemStat(item, 'magicLevelRequired') or (item.category == 'Combat' and item.type == 'Magic Armour')
+			else
+				listItem = item.type == type and item.category ~= 'Combat'
+			end
+			if ammoType ~= nil then listItem = listItem and item.ammoType == ammoType end
+			if slot ~= nil then listItem = listItem and Shared.contains(item.validSlots, slot) end
+		end
+		if listItem then
+			table.insert(itemList, item)
+		end
+	end
 
-  local result = p._getEquipmentTable(itemList).."[[Category:getEquipmentTable]]"
+	local result = p._getEquipmentTable(itemList) .. "[[Category:getEquipmentTable]]"
 
-  return result
+	return result
 end
 
 function p._getCategoryTable(style, slot, other, includeModifiers, includeDescription)
-  if type(slot) == 'number' then
-    slot = Constants.getEquipmentSlotName(slot)
-  end
+	if type(slot) == 'number' then
+		slot = Constants.getEquipmentSlotName(slot)
+	end
 
-  local itemList = Items.getItems(function(item)
-      local isMatch = true
-      if style == 'Melee' then
-        if (Items._getItemStat(item, 'defenceLevelRequired') == nil and Items._getItemStat(item, 'attackLevelRequired') == nil) and not Shared.contains(styleOverrides.Melee, item.name) then isMatch = false end
-      elseif style == 'Ranged' then
-        if Items._getItemStat(item, 'rangedLevelRequired') == nil and not Shared.contains(styleOverrides.Ranged, item.name) then isMatch = false end
-      elseif style == 'Magic' then
-        if Items._getItemStat(item, 'magicLevelRequired') == nil and not Shared.contains(styleOverrides.Magic, item.name) then isMatch = false end
-      elseif style == 'None' then
-        if (Items._getItemStat(item, 'defenceLevelRequired') ~= nil or Items._getItemStat(item, 'rangedLevelRequired') ~= nil or Items._getItemStat(item, 'magicLevelRequired') ~= nil or
-           Shared.contains(styleOverrides.Melee, item.name) or Shared.contains(styleOverrides.Ranged, item.name) or Shared.contains(styleOverrides.Magic, item.name)) and
-           not Shared.contains(styleOverrides.None, item.name) then
-          isMatch = false
-        end
-      end
-      if slot == nil or not Shared.contains(item.validSlots, slot) then isMatch = false end
+	local itemList = Items.getItems(function(item)
+		local isMatch = true
+		if style == 'Melee' then
+			if (Items._getItemStat(item, 'defenceLevelRequired') == nil and Items._getItemStat(item, 'attackLevelRequired') == nil) and not Shared.contains(styleOverrides.Melee, item.name) then isMatch = false end
+		elseif style == 'Ranged' then
+			if Items._getItemStat(item, 'rangedLevelRequired') == nil and not Shared.contains(styleOverrides.Ranged, item.name) then isMatch = false end
+		elseif style == 'Magic' then
+			if Items._getItemStat(item, 'magicLevelRequired') == nil and not Shared.contains(styleOverrides.Magic, item.name) then isMatch = false end
+		elseif style == 'None' then
+			if (Items._getItemStat(item, 'defenceLevelRequired') ~= nil or Items._getItemStat(item, 'rangedLevelRequired') ~= nil or Items._getItemStat(item, 'magicLevelRequired') ~= nil or
+			Shared.contains(styleOverrides.Melee, item.name) or Shared.contains(styleOverrides.Ranged, item.name) or Shared.contains(styleOverrides.Magic, item.name)) and
+			not Shared.contains(styleOverrides.None, item.name) then
+			isMatch = false
+		end
+	end
+	if slot == nil or not Shared.contains(item.validSlots, slot) then isMatch = false end
 
-      if isMatch and other ~= nil then
-        if slot == 'Weapon' then --For quiver slot or weapon slot, 'other' is the ammo type
-          if other == 'Arrows' then
-            if item.ammoTypeRequired ~= 0 then isMatch = false end
-          elseif other == 'Bolts' then
-            if item.ammoTypeRequired ~= 1 then isMatch = false end
-          end
-        elseif slot == 'Quiver' then
-          if other == 'Arrows' then
-            if item.ammoType ~= 0 then isMatch = false end
-          elseif other == 'Bolts' then
-            if item.ammoType ~= 1 then isMatch = false end
-          elseif other == 'Javelins' then
-            if item.ammoType ~= 2 then isMatch = false end
-          elseif other == 'Throwing Knives' then
-            if item.ammoType ~= 3 then isMatch = false end
-          elseif other == 'Thrown' then
-            if item.ammoType ~= 2 and item.ammoType ~= 3 then isMatch = false end
-          end
-        end
-      end
+	if isMatch and other ~= nil then
+		if slot == 'Weapon' then --For quiver slot or weapon slot, 'other' is the ammo type
+			if other == 'Arrows' then
+				if item.ammoTypeRequired ~= 0 then isMatch = false end
+			elseif other == 'Bolts' then
+				if item.ammoTypeRequired ~= 1 then isMatch = false end
+			end
+		elseif slot == 'Quiver' then
+			if other == 'Arrows' then
+				if item.ammoType ~= 0 then isMatch = false end
+			elseif other == 'Bolts' then
+				if item.ammoType ~= 1 then isMatch = false end
+			elseif other == 'Javelins' then
+				if item.ammoType ~= 2 then isMatch = false end
+			elseif other == 'Throwing Knives' then
+				if item.ammoType ~= 3 then isMatch = false end
+			elseif other == 'Thrown' then
+				if item.ammoType ~= 2 and item.ammoType ~= 3 then isMatch = false end
+			end
+		end
+	end
 
-      return isMatch
-    end)
+	return isMatch
+end)
 
-  local result = p._getEquipmentTable(itemList, includeModifiers, includeDescription)
+local result = p._getEquipmentTable(itemList, includeModifiers, includeDescription)
 
-  return result
+return result
 end
 
 function p.getCategoryTable(frame)
-  local style = frame.args ~= nil and frame.args[1] or frame[1]
-  local slot = frame.args ~= nil and frame.args[2] or frame[2]
-  local other = frame.args ~= nil and frame.args[3] or frame[3]
-  local includeModifiers = frame.args ~= nil and frame.args.includeModifiers or frame.includeModifiers
-  local includeDescription = frame.args ~= nil and frame.args.includeDescription or frame.includeDescription
+	local style = frame.args ~= nil and frame.args[1] or frame[1]
+	local slot = frame.args ~= nil and frame.args[2] or frame[2]
+	local other = frame.args ~= nil and frame.args[3] or frame[3]
+	local includeModifiers = frame.args ~= nil and frame.args.includeModifiers or frame.includeModifiers
+	local includeDescription = frame.args ~= nil and frame.args.includeDescription or frame.includeDescription
 
-  includeModifiers = includeModifiers ~= nil and string.upper(includeModifiers) == 'TRUE' or false
-  includeDescription = includeDescription ~= nil and string.upper(includeDescription) == 'TRUE' or false
+	includeModifiers = includeModifiers ~= nil and string.upper(includeModifiers) == 'TRUE' or false
+	includeDescription = includeDescription ~= nil and string.upper(includeDescription) == 'TRUE' or false
 
-  return p._getCategoryTable(style, slot, other, includeModifiers, includeDescription)
+	return p._getCategoryTable(style, slot, other, includeModifiers, includeDescription)
 end
 
 function p.getTableForList(frame)
-  local stuffString = frame.args ~= nil and frame.args[1] or frame[1]
-  local itemNames = Shared.splitString(stuffString, ',')
+	local stuffString = frame.args ~= nil and frame.args[1] or frame[1]
+	local itemNames = Shared.splitString(stuffString, ',')
 
-  local includeModifiers = frame.args ~= nil and frame.args[2] or frame[2]
-  includeModifiers = includeModifiers ~= nil and string.upper(includeModifiers) == 'TRUE' or false
+	local includeModifiers = frame.args ~= nil and frame.args[2] or frame[2]
+	includeModifiers = includeModifiers ~= nil and string.upper(includeModifiers) == 'TRUE' or false
 
-  local itemList = {}
-  local errMsg = 'ERROR: Some items not found in database: [[Category:Pages with script errors]]'
-  local hasErr = false
-  for i, name in Shared.skpairs(itemNames) do
-    local nextItem = Items.getItem(Shared.trim(name))
-    if nextItem == nil then
-      errMsg = errMsg.." '"..name.."'"
-      hasErr = true
-    else
-      table.insert(itemList, nextItem)
-    end
-  end
+	local itemList = {}
+	local errMsg = 'ERROR: Some items not found in database: [[Category:Pages with script errors]]'
+	local hasErr = false
+	for i, name in Shared.skpairs(itemNames) do
+		local nextItem = Items.getItem(Shared.trim(name))
+		if nextItem == nil then
+			errMsg = errMsg.." '"..name.."'"
+			hasErr = true
+		else
+			table.insert(itemList, nextItem)
+		end
+	end
 
-  if hasErr then
-    return errMsg
-  else
-    return p._getEquipmentTable(itemList, includeModifiers)
-  end
+	if hasErr then
+		return errMsg
+	else
+		return p._getEquipmentTable(itemList, includeModifiers)
+	end
 end
 
 function p.getDoubleLootTable(frame)
-  local modsDL = {
-    'increasedChanceToDoubleLootCombat',
-    'decreasedChanceToDoubleLootCombat',
-    'increasedChanceToDoubleLootThieving',
-    'decreasedChanceToDoubleLootThieving',
-    'increasedChanceToDoubleItemsGlobal',
-    'decreasedChanceToDoubleItemsGlobal'
-  }
-  local modDetail = {}
-  for i, modName in pairs(modsDL) do
-    local mName, mText, mSign, mIsNeg, mValUnsigned = Constants.getModifierDetails(modName)
-    modDetail[modName] = { mult = (mSign == "+" and 1 or -1) }
-  end
+	local modsDL = {
+		'increasedChanceToDoubleLootCombat',
+		'decreasedChanceToDoubleLootCombat',
+		'increasedChanceToDoubleLootThieving',
+		'decreasedChanceToDoubleLootThieving',
+		'increasedChanceToDoubleItemsGlobal',
+		'decreasedChanceToDoubleItemsGlobal'
+	}
+	local modDetail = {}
+	for i, modName in pairs(modsDL) do
+		local mName, mText, mSign, mIsNeg, mValUnsigned = Constants.getModifierDetails(modName)
+		modDetail[modName] = {mult = (mSign == "+" and 1 or - 1)}
+	end
 
-  local itemList = Items.getItems(function(item)
-      if item.modifiers ~= nil then
-        for modName, val in pairs(item.modifiers) do
-          if Shared.contains(modsDL, modName) then return true end
-        end
-        return false
-      end
-    end)
-  table.sort(itemList, function(a, b) return a.id < b.id end)
+	local itemList = Items.getItems(function(item)
+		if item.modifiers ~= nil then
+			for modName, val in pairs(item.modifiers) do
+				if Shared.contains(modsDL, modName) then return true end
+			end
+			return false
+		end
+	end)
+	table.sort(itemList, function(a, b) return a.id < b.id end)
 
-  local resultPart = {}
-  table.insert(resultPart, '{| class="wikitable sortable stickyHeader"\r\n|-class="headerRow-0"')
-  table.insert(resultPart, '\r\n!colspan="2"|Name!!Bonus!!Description')
-  for i, item in Shared.skpairs(itemList) do
-    local lootValue = 0
-    for modName, modDet in pairs(modDetail) do
-      lootValue = lootValue + (item.modifiers[modName] or 0) * modDet.mult
-    end
-    table.insert(resultPart, '\r\n|-')
-    table.insert(resultPart, '\r\n|data-sort-value="'..item.name..'"|'..Icons.Icon({item.name, type='item', size=50, notext=true}))
-    table.insert(resultPart, '||'..Icons.Icon({item.name, type='item', noicon=true}))
-    table.insert(resultPart, '||style ="text-align: right;" data-sort-value="'..lootValue..'"|'..lootValue..'%')
-    table.insert(resultPart, '||'..item.description)
-  end
+	local resultPart = {}
+	table.insert(resultPart, '{| class="wikitable sortable stickyHeader"\r\n|-class="headerRow-0"')
+	table.insert(resultPart, '\r\n!colspan="2"|Name!!Bonus!!Description')
+	for i, item in Shared.skpairs(itemList) do
+		local lootValue = 0
+		for modName, modDet in pairs(modDetail) do
+			lootValue = lootValue + (item.modifiers[modName] or 0) * modDet.mult
+		end
+		table.insert(resultPart, '\r\n|-')
+		table.insert(resultPart, '\r\n|data-sort-value="'..item.name..'"|'..Icons.Icon({item.name, type = 'item', size = 50, notext = true}))
+		table.insert(resultPart, '||'..Icons.Icon({item.name, type = 'item', noicon = true}))
+		table.insert(resultPart, '||style ="text-align: right;" data-sort-value="'..lootValue..'"|'..lootValue..'%')
+		table.insert(resultPart, '||'..item.description)
+	end
 
-  table.insert(resultPart, '\r\n|}')
-  return table.concat(resultPart)
+	table.insert(resultPart, '\r\n|}')
+	return table.concat(resultPart)
 end
 
 function p.getStatChangeString(item1, item2)
-  --Used by getItemUpgradeTable to get the stat change between two items
-  local changeArray = {}
+	--Used by getItemUpgradeTable to get the stat change between two items
+	local changeArray = {}
 
-  local getSpecificStatString = function(val1, val2, subStr)
-      if val1 == nil then val1 = 0 end
-      if val2 == nil then val2 = 0 end
+	local getSpecificStatString = function(val1, val2, subStr)
+		if val1 == nil then val1 = 0 end
+		if val2 == nil then val2 = 0 end
 
-      if val1 ~= val2 then
-        local txt = string.gsub(subStr, '{V}', Shared.numStrWithSign(val1 - val2))
-        table.insert(changeArray, txt)
-      end
-    end
+		if val1 ~= val2 then
+			local txt = string.gsub(subStr, '{V}', Shared.numStrWithSign(val1 - val2))
+			table.insert(changeArray, txt)
+		end
+	end
 
-  --Unfortunately just gonna have to manually check all the changes I think...
-  local statList = {
-    -- {'statName', 'statDescription'}
-    {'stabAttackBonus', '{V} '..Icons.Icon({'Melee', notext=true})..' Stab Bonus'},
-    {'slashAttackBonus', '{V} '..Icons.Icon({'Melee', notext=true})..' Slash Bonus'},
-    {'blockAttackBonus', '{V} '..Icons.Icon({'Melee', notext=true})..' Block Bonus'},
-    {'meleeStrengthBonus', '{V} '..Icons.Icon({'Strength', type='skill', notext=true})..' Strength Bonus'},
-    {'rangedStrengthBonus', '{V} '..Icons.Icon({'Ranged', type='skill', notext=true})..' Strength Bonus'},
-    {'magicStrengthBonus', '{V}% '..Icons.Icon({'Magic', type='skill', notext=true})..' Damage Bonus'},
-    {'meleeDefenceBonus', '{V} '..Icons.Icon({'Defence', type='skill', notext=true})..' Defence Bonus'},
-    {'rangedDefenceBonus', '{V} '..Icons.Icon({'Ranged', type='skill', notext=true})..' Defence Bonus'},
-    {'magicDefenceBonus', '{V} '..Icons.Icon({'Magic', type='skill', notext=true})..' Defence Bonus'},
-    {'damageReduction', '{V}% Damage Reduction'},
-    {'increasedSlayerXP', '{V}% '..Icons.Icon({'Slayer', type='skill', notext=true})..' Bonus XP'},
-    {'attackLevelRequired', '{V} '..Icons.Icon({'Attack', type='skill', notext=true})..' Level Required'},
-    {'defenceLevelRequired', '{V} '..Icons.Icon({'Defence', type='skill', notext=true})..' Level Required'},
-    {'rangedLevelRequired', '{V} '..Icons.Icon({'Ranged', type='skill', notext=true})..' Level Required'},
-    {'magicLevelRequired', '{V} '..Icons.Icon({'Magic', type='skill', notext=true})..' Level Required'},
-  }
-  for i, stat in ipairs(statList) do
-    if stat[1] == 'increasedSlayerXP' then
-      getSpecificStatString(Items._getItemModifier(item1, stat[1], 'Slayer'), Items._getItemModifier(item2, stat[1], 'Slayer'), stat[2])
-    else
-      getSpecificStatString(Items._getItemStat(item1, stat[1]), Items._getItemStat(item2, stat[1]), stat[2])
-    end
-  end
+	--Unfortunately just gonna have to manually check all the changes I think...
+	local statList = {
+		-- {'statName', 'statDescription'}
+		{'stabAttackBonus', '{V} '..Icons.Icon({'Melee', notext = true}) .. ' Stab Bonus'},
+		{'slashAttackBonus', '{V} '..Icons.Icon({'Melee', notext = true}) .. ' Slash Bonus'},
+		{'blockAttackBonus', '{V} '..Icons.Icon({'Melee', notext = true}) .. ' Block Bonus'},
+		{'meleeStrengthBonus', '{V} '..Icons.Icon({'Strength', type = 'skill', notext = true}) .. ' Strength Bonus'},
+		{'rangedStrengthBonus', '{V} '..Icons.Icon({'Ranged', type = 'skill', notext = true}) .. ' Strength Bonus'},
+		{'magicStrengthBonus', '{V}% '..Icons.Icon({'Magic', type = 'skill', notext = true}) .. ' Damage Bonus'},
+		{'meleeDefenceBonus', '{V} '..Icons.Icon({'Defence', type = 'skill', notext = true}) .. ' Defence Bonus'},
+		{'rangedDefenceBonus', '{V} '..Icons.Icon({'Ranged', type = 'skill', notext = true}) .. ' Defence Bonus'},
+		{'magicDefenceBonus', '{V} '..Icons.Icon({'Magic', type = 'skill', notext = true}) .. ' Defence Bonus'},
+		{'damageReduction', '{V}% Damage Reduction'},
+		{'increasedSlayerXP', '{V}% '..Icons.Icon({'Slayer', type = 'skill', notext = true}) .. ' Bonus XP'},
+		{'attackLevelRequired', '{V} '..Icons.Icon({'Attack', type = 'skill', notext = true}) .. ' Level Required'},
+		{'defenceLevelRequired', '{V} '..Icons.Icon({'Defence', type = 'skill', notext = true}) .. ' Level Required'},
+		{'rangedLevelRequired', '{V} '..Icons.Icon({'Ranged', type = 'skill', notext = true}) .. ' Level Required'},
+		{'magicLevelRequired', '{V} '..Icons.Icon({'Magic', type = 'skill', notext = true}) .. ' Level Required'},
+	}
+	for i, stat in ipairs(statList) do
+		if stat[1] == 'increasedSlayerXP' then
+			getSpecificStatString(Items._getItemModifier(item1, stat[1], 'Slayer'), Items._getItemModifier(item2, stat[1], 'Slayer'), stat[2])
+		else
+			getSpecificStatString(Items._getItemStat(item1, stat[1]), Items._getItemStat(item2, stat[1]), stat[2])
+		end
+	end
 
-  return table.concat(changeArray, '<br/>')
+	return table.concat(changeArray, '<br/>')
 end
 
 function p.getItemUpgradeTable(frame)
-  local category = frame.args ~= nil and frame.args[1] or frame
-  local itemArray = {}
-  local isEquipment = false
+	local category = frame.args ~= nil and frame.args[1] or frame
+	local itemArray = {}
+	local isEquipment = false
 
-  if string.upper(category) == 'POTION' then
-    itemArray = Items.getItems(function(item) return Shared.contains(item.name, 'Potion') and item.itemsRequired ~= nil end)
-  elseif string.upper(category) == 'OTHER' then
-    itemArray = Items.getItems(function(item)
-           return not Shared.contains(item.name, 'Potion') and item.itemsRequired ~= nil and item.validSlots == nil
-         end)
-  else
-    if Constants.getEquipmentSlotID(category) == nil then
-      return 'ERROR: Invalid option. Choose either an equipment slot, Potion, or Other[[Category:Pages with script errors]]'
-    end
-    isEquipment = true
-    itemArray = Items.getItems(function(item)
-           return item.itemsRequired ~= nil and Shared.contains(item.validSlots, category)
-         end)
-  end
-  table.sort(itemArray, function(a, b) return a.id < b.id end)
+	if string.upper(category) == 'POTION' then
+		itemArray = Items.getItems(function(item) return Shared.contains(item.name, 'Potion') and item.itemsRequired ~= nil end)
+	elseif string.upper(category) == 'OTHER' then
+		itemArray = Items.getItems(function(item)
+			return not Shared.contains(item.name, 'Potion') and item.itemsRequired ~= nil and item.validSlots == nil
+		end)
+	else
+		if Constants.getEquipmentSlotID(category) == nil then
+			return 'ERROR: Invalid option. Choose either an equipment slot, Potion, or Other[[Category:Pages with script errors]]'
+		end
+		isEquipment = true
+		itemArray = Items.getItems(function(item)
+			return item.itemsRequired ~= nil and Shared.contains(item.validSlots, category)
+		end)
+	end
+	table.sort(itemArray, function(a, b) return a.id < b.id end)
 
-  local resultPart = {}
-  table.insert(resultPart, '{| class="wikitable sortable stickyHeader"')
-  table.insert(resultPart, '\r\n|- class="headerRow-0"')
-  table.insert(resultPart, '\r\n!colspan="2"|Upgraded Item!!Ingredients')
-  if isEquipment then table.insert(resultPart, '!!Stat Change') end
+	local resultPart = {}
+	table.insert(resultPart, '{| class="wikitable sortable stickyHeader"')
+	table.insert(resultPart, '\r\n|- class="headerRow-0"')
+	table.insert(resultPart, '\r\n!colspan="2"|Upgraded Item!!Ingredients')
+	if isEquipment then table.insert(resultPart, '!!Stat Change') end
 
-  for i, item in Shared.skpairs(itemArray) do
-    table.insert(resultPart, '\r\n|-')
-    table.insert(resultPart, '\r\n|'..Icons.Icon({item.name, type='item', size='50', notext=true}))
-    table.insert(resultPart, '||'..Icons.Icon({item.name, type='item', noicon=true}))
+	for i, item in Shared.skpairs(itemArray) do
+		table.insert(resultPart, '\r\n|-')
+		table.insert(resultPart, '\r\n|'..Icons.Icon({item.name, type = 'item', size = '50', notext = true}))
+		table.insert(resultPart, '||'..Icons.Icon({item.name, type = 'item', noicon = true}))
 
-    local matArray = {}
-    local statChangeString = ''
-    for i, row in Shared.skpairs(item.itemsRequired) do
-      local mat = Items.getItemByID(row[1])
-      table.insert(matArray, Icons.Icon({mat.name, type='item', qty=row[2]}))
+		local matArray = {}
+		local statChangeString = ''
+		for i, row in Shared.skpairs(item.itemsRequired) do
+			local mat = Items.getItemByID(row[1])
+			table.insert(matArray, Icons.Icon({mat.name, type = 'item', qty = row[2]}))
 
-      if item.validSlots ~= nil and mat.validSlots ~= nil and statChangeString == '' then
-        statChangeString = p.getStatChangeString(item, mat)
-      end
-    end
-    if item.trimmedGPCost ~= nil and item.trimmedGPCost > 0 then
-      table.insert(matArray, Icons.GP(item.trimmedGPCost))
-    end
-    table.insert(resultPart, '||'..table.concat(matArray, '<br/>'))
+			if item.validSlots ~= nil and mat.validSlots ~= nil and statChangeString == '' then
+				statChangeString = p.getStatChangeString(item, mat)
+			end
+		end
+		if item.trimmedGPCost ~= nil and item.trimmedGPCost > 0 then
+			table.insert(matArray, Icons.GP(item.trimmedGPCost))
+		end
+		table.insert(resultPart, '||'..table.concat(matArray, '<br/>'))
 
-    if isEquipment then
-      table.insert(resultPart, '||'..statChangeString)
-    end
-  end
+		if isEquipment then
+			table.insert(resultPart, '||'..statChangeString)
+		end
+	end
 
-  table.insert(resultPart, '\r\n|}')
-  return table.concat(resultPart)
+	table.insert(resultPart, '\r\n|}')
+	return table.concat(resultPart)
 end
 
 return p
